@@ -1,5 +1,7 @@
 # HIRA e-Form login for macOS
 
+> Run HIRA e-Form 공동인증서 login on macOS — without Windows or KCase.
+
 A minimal Node.js re-implementation of the Windows-only **KSignCase / KCase**
 PKI browser agent, enough to complete 공동인증서 login on
 `https://ef.hira.or.kr` (건강보험심사평가원 e-Form 시스템) from macOS.
