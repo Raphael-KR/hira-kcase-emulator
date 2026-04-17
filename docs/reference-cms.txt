@@ -1,0 +1,54 @@
+Reference CMS structure: `CERT_GENERATE_SIGNDATA` (APIName 21) output that
+HIRA's `pmi-sso-login-certificate.jsp` accepts for 공동인증서 login.
+
+PII WARNING: a real signed blob is a replayable login credential for this cert
+(HIRA signs over a static DN, not a per-request nonce). Never commit or share
+a live CMS. The example below uses a fictitious cert.
+
+    node scripts/test-sign.js <password>        # prints your own CMS for diffing
+    node scripts/inspect-cms.js <b64-file>      # parse any CMS
+
+Example — individual KICA cert for `cn=홍길동,ou=개인,ou=licensedCA,o=KICA,c=KR`:
+
+  SEQUENCE
+    OID 1.2.840.113549.1.7.2 (signedData)
+    [0] SEQUENCE
+      INTEGER 1                                 -- version
+      SET { SEQUENCE { OID sha256, NULL } }     -- digestAlgorithms
+      SEQUENCE                                  -- encapContentInfo
+        OID 1.2.840.113549.1.7.1 (data)
+        [0] OCTET STRING                        -- CP949 bytes of the DN
+             63 3d 4b 52 2c 6f 3d 4b 49 43 41    "c=KR,o=KICA"
+             2c 6f 75 3d 6c 69 63 65 6e 73 65    ",ou=license"
+             64 43 41 2c 6f 75 3d b0 b3 c0 ce    "dCA,ou=" + CP949 "개인"
+             2c 63 6e 3d c8 ab b1 e6 b5 bf       ",cn=" + CP949 "홍길동"
+      [0] SEQUENCE { Certificate }              -- signer certificate (public)
+      SET OF SignerInfo (1):
+        SEQUENCE
+          INTEGER 1                             -- version
+          SEQUENCE { issuerDN, serial <INTEGER> }
+          SEQUENCE { OID sha256, NULL }         -- digestAlgorithm
+          SEQUENCE { OID rsaEncryption, NULL }  -- signatureAlgorithm (*)
+          OCTET STRING (keybits/8 bytes)        -- RSA PKCS#1 v1.5 signature
+                                                --   over the encapContent
+                                                --   (no signedAttrs)
+
+  (*) forge emits 1.2.840.113549.1.1.1 (rsaEncryption). The Windows KCase
+      agent emits 1.2.840.113549.1.1.11 (sha256WithRSAEncryption). HIRA
+      accepts both because PKCS#1 v1.5 embeds the hash OID inside DigestInfo.
+
+Key invariants (any drift here will trip HIRA's `[8] 로그인 처리시 오류`):
+  - SignerInfo has exactly 5 sub-values (no [0] IMPLICIT signedAttrs).
+  - encapContent is CP949-encoded DN bytes, not UTF-8.
+      UTF-8   홍 = e8 a9 b8      vs    CP949   홍 = c8 ab
+      UTF-8   개 = ea b0 9c      vs    CP949   개 = b0 b3
+    forge/node-forge gives you UTF-8 by default; re-encode via iconv-lite.
+  - Signature verifies against the public key in the embedded certificate
+    with sha256 + PKCS#1 v1.5 over the raw content (no authenticated attrs).
+
+How to find your own cert on macOS:
+  ~/Library/Preferences/NPKI/<CA>/USER/<DN>/signCert.der
+  ~/Library/Preferences/NPKI/<CA>/USER/<DN>/signPri.key   (PBES1-encrypted)
+
+On Windows the same pair lives at:
+  %APPDATA%\NPKI\<CA>\USER\<DN>\

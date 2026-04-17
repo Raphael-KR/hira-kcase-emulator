@@ -1,0 +1,16 @@
+node_modules/
+.DS_Store
+
+# Self-signed WSS cert — regenerate locally with `npm run gen-cert`.
+# The private key must never leave the machine; anyone holding it can
+# impersonate the local agent to any browser that trusted this cert.
+certs/*.key
+certs/*.crt
+
+# Scratch / debug output
+*.log
+/tmp/
+
+# Anything mirrored from HIRA for reverse-engineering. These captures
+# contain live session cookies and replayable signeddata.
+recon/
